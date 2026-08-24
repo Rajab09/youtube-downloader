@@ -20,16 +20,24 @@ const helmetMiddleware = helmet({
   crossOriginEmbedderPolicy: false,
 });
 
-const corsMiddleware = cors({
-  origin(origin, callback) {
-    if (!origin || config.allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS policy'));
-  },
-  methods: ['GET', 'POST'],
-  credentials: false,
-});
+// Wrapped as a per-request middleware (rather than a static `cors()` instance) so we can
+// always allow the app's own origin — e.g. the exact host Render/Heroku/etc. assigns at
+// deploy time — without requiring ALLOWED_ORIGINS to be manually kept in sync for the
+// common case where the frontend and API are served from the same deployment.
+function corsMiddleware(req, res, next) {
+  const selfOrigin = `${req.protocol}://${req.get('host')}`;
+
+  return cors({
+    origin(origin, callback) {
+      if (!origin || origin === selfOrigin || config.allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS policy'));
+    },
+    methods: ['GET', 'POST'],
+    credentials: false,
+  })(req, res, next);
+}
 
 const generalLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
