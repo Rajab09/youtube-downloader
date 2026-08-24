@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: youtube-downloader
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX
+        value: 100
+      - key: DOWNLOAD_RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: DOWNLOAD_RATE_LIMIT_MAX
+        value: 10
+      - key: DOWNLOADS_DIR
+        value: downloads
+      - key: MAX_FILE_SIZE_BYTES
+        value: 524288000
+      - key: MAX_CONCURRENT_DOWNLOADS
+        value: 3
+      - key: DOWNLOAD_TIMEOUT_MS
+        value: 600000
+      - key: FILE_RETENTION_MS
+        value: 900000
+      - key: CLEANUP_INTERVAL_MS
+        value: 300000

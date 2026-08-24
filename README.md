@@ -4,6 +4,12 @@ A premium, dark-themed web app for analyzing and downloading YouTube videos that
 
 > **Legal notice:** This tool does not bypass DRM, authentication, paywalls, or any YouTube access controls. It only processes publicly accessible video streams and requires the user to confirm they own or are authorized to download the content before every analysis and download request. You are solely responsible for ensuring you have the right to download any content you process with this tool.
 
+## Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Rajab09/youtube-downloader)
+
+This repo includes a `render.yaml` Blueprint. Click the button, connect your GitHub account, and Render will build and host the app automatically (free tier). After the first deploy, open the service's **Environment** tab and set `ALLOWED_ORIGINS` to your Render URL (e.g. `https://youtube-downloader-xxxx.onrender.com`).
+
 ## Features
 
 - Paste a YouTube URL and analyze it for authorized formats and qualities
