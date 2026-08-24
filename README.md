@@ -42,7 +42,17 @@ youtube-downloader/
 npm install
 ```
 
-This installs Express, `@distube/ytdl-core`, `fluent-ffmpeg` + `ffmpeg-static` (bundled ffmpeg binary, no system install required), Helmet, CORS, rate limiting, and dev tooling (`nodemon`).
+This installs Express, `ffmpeg-static` (bundled ffmpeg binary, no system install required), Helmet, CORS, rate limiting, and dev tooling (`nodemon`).
+
+**Also requires `yt-dlp`** (the actual video/audio stream extraction engine — a separate, actively-maintained command-line tool, not an npm package):
+- **On Linux** (including Render/most PaaS deploys): a `postinstall` script automatically downloads the standalone `yt-dlp` binary into `./bin/yt-dlp` — no extra step needed.
+- **On macOS/Windows for local development**: install it yourself and make sure it's on your `PATH`:
+  ```bash
+  brew install yt-dlp        # macOS
+  # or
+  pip install -U yt-dlp      # any platform with Python
+  ```
+  Keep it updated (`brew upgrade yt-dlp` / `pip install -U yt-dlp`) — YouTube changes its API frequently, and yt-dlp ships fixes for it almost weekly. An outdated yt-dlp is the most common cause of "YouTube is temporarily blocking automated access" errors.
 
 ## 2. Configure environment variables
 
@@ -105,14 +115,14 @@ http://localhost:3000
 ## Limitations
 
 - Only public, non-live, non-age-restricted, non-private YouTube videos can be analyzed. Private, region-restricted, or age-gated videos are rejected with a clear error — this app does not attempt to authenticate as a user or bypass any restriction.
-- 1080p (and any quality without a combined audio+video stream) is produced by merging YouTube's separate video-only and audio-only streams with ffmpeg — both streams are still fetched from the same publicly served, unauthenticated endpoints as the video player itself, no protections are circumvented.
+- All video/audio streams are fetched from the same publicly served, unauthenticated endpoints the regular YouTube player itself uses — no protections, DRM, or auth are circumvented. Higher qualities are produced by muxing separately-served video-only and audio-only streams together with ffmpeg, exactly as any standards-compliant player does.
 - MP3 export is a local ffmpeg re-encode of the best available public audio stream, not a "hidden" format extracted from YouTube.
 - The app cannot verify real-world ownership/authorization of content — it relies on the user's explicit confirmation checkbox, which is required on every analyze and download request. You must have the legal right to download any content you process.
-- Availability of specific formats/qualities depends entirely on what YouTube publicly serves for a given video at request time.
+- Availability of specific formats/qualities depends entirely on what YouTube publicly serves for a given video at request time, and on `yt-dlp` staying current with YouTube's frequently-changing API — keep it updated.
 
 ## Tech Stack
 
 - **Frontend:** HTML5, CSS3 (custom, no framework), vanilla JavaScript
 - **Backend:** Node.js, Express
-- **Video processing:** `@distube/ytdl-core`, `fluent-ffmpeg` + `ffmpeg-static`
+- **Video processing:** `yt-dlp` (spawned as a subprocess) + `ffmpeg-static` for merging/audio conversion
 - **Security:** Helmet, CORS allowlist, `express-rate-limit`, strict input validation, request size limits, concurrency guard

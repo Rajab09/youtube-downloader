@@ -1,25 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const ytdl = require('@distube/ytdl-core');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
 
 const config = require('../config');
-const { updateJob } = require('./jobManager');
-const { fetchVideoInfo, buildAvailableFormats, VideoServiceError } = require('./videoService');
-
-ffmpeg.setFfmpegPath(ffmpegPath);
+const { updateJob, getJob } = require('./jobManager');
+const { fetchVideoInfo, VideoServiceError } = require('./videoService');
+const { runDownload, YtDlpError } = require('./ytdlpRunner');
 
 function sanitizeFilenameFragment(name) {
-  return (name || 'video')
-    .replace(/[^a-zA-Z0-9 _-]/g, '')
-    .trim()
-    .slice(0, 80) || 'video';
-}
-
-function tempFilePath(ext) {
-  return path.join(config.downloadsDir, `${uuidv4()}.${ext}`);
+  return (
+    (name || 'video')
+      .replace(/[^a-zA-Z0-9 _-]/g, '')
+      .trim()
+      .slice(0, 80) || 'video'
+  );
 }
 
 function withTimeout(jobId, ms) {
@@ -31,171 +25,85 @@ function withTimeout(jobId, ms) {
   }, ms);
 }
 
-function pipeWithProgress(readable, writable, jobId, weightStart, weightEnd) {
-  return new Promise((resolve, reject) => {
-    let downloaded = 0;
-    let total = 0;
-
-    readable.on('progress', (chunkLength, downloadedBytes, totalBytes) => {
-      downloaded = downloadedBytes;
-      total = totalBytes;
-      const pct = total ? downloaded / total : 0;
-      const overall = weightStart + pct * (weightEnd - weightStart);
-      updateJob(jobId, {
-        status: 'downloading',
-        progress: Math.round(overall * 100),
-        downloadedBytes: downloaded,
-        totalBytes: total,
-      });
-    });
-
-    readable.on('error', reject);
-    writable.on('error', reject);
-    writable.on('finish', resolve);
-
-    readable.pipe(writable);
-  });
-}
-
-async function assertWithinSizeLimit(bytes) {
-  if (bytes && bytes > config.maxFileSizeBytes) {
-    throw new VideoServiceError(
-      'The requested file exceeds the maximum allowed download size.',
-      'FILE_TOO_LARGE',
-      413
-    );
+function mapDownloadError(err) {
+  if (err instanceof VideoServiceError) return err.message;
+  if (err instanceof YtDlpError) {
+    return 'Unable to download this video due to a restriction on YouTube’s side. Please try again later.';
   }
+  return 'An unexpected error occurred while processing your download.';
 }
 
 async function runDownloadJob(jobId, { url, format, quality }) {
   const timeoutHandle = withTimeout(jobId, config.downloadTimeoutMs);
-  const cleanupPaths = [];
 
   try {
     const info = await fetchVideoInfo(url);
-    const { qualities, bestAudioItag } = buildAvailableFormats(info);
-    const safeTitle = sanitizeFilenameFragment(info.videoDetails.title);
+    const safeTitle = sanitizeFilenameFragment(info.title);
 
     updateJob(jobId, { status: 'preparing', progress: 5 });
 
+    const uuid = uuidv4();
+    const outputTemplate = path.join(config.downloadsDir, `${uuid}.%(ext)s`);
+
+    let formatSelector;
+    let postArgs;
+    let finalExt;
+    let fileName;
+
     if (format === 'mp3') {
-      if (!bestAudioItag) {
-        throw new VideoServiceError('No authorized audio track is available.', 'NO_AUDIO', 422);
+      formatSelector = 'bestaudio/best';
+      postArgs = ['-x', '--audio-format', 'mp3', '--audio-quality', '192K'];
+      finalExt = 'mp3';
+      fileName = `${safeTitle}.mp3`;
+    } else {
+      const height = parseInt(quality, 10);
+      if (!Number.isFinite(height)) {
+        throw new VideoServiceError('Unsupported quality requested.', 'INVALID_QUALITY', 400);
       }
-      const audioFormat = info.formats.find((f) => f.itag === bestAudioItag);
-      await assertWithinSizeLimit(audioFormat ? Number(audioFormat.contentLength) : 0);
+      formatSelector = `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`;
+      postArgs = ['--merge-output-format', 'mp4'];
+      finalExt = 'mp4';
+      fileName = `${safeTitle}-${quality}.mp4`;
+    }
 
-      const rawAudioPath = tempFilePath('audio-src');
-      cleanupPaths.push(rawAudioPath);
-      const audioStream = ytdl.downloadFromInfo(info, { quality: bestAudioItag });
-      await pipeWithProgress(audioStream, fs.createWriteStream(rawAudioPath), jobId, 0.05, 0.55);
+    postArgs.push('--max-filesize', String(config.maxFileSizeBytes));
 
-      const outputPath = tempFilePath('mp3');
-      updateJob(jobId, { status: 'converting', progress: 60 });
-      await convertToMp3(rawAudioPath, outputPath, jobId);
+    // yt-dlp reports video and audio streams as separate download phases, each
+    // restarting from 0% — clamp so the progress bar never visibly moves backward.
+    await runDownload(url, { formatSelector, outputTemplate, postArgs }, (progress) => {
+      const current = getJob(jobId);
+      const candidate = Math.min(97, Math.round(progress.percent * 0.95));
+      const nextProgress = Math.max(current ? current.progress : 0, candidate);
 
       updateJob(jobId, {
-        status: 'complete',
-        progress: 100,
-        filePath: outputPath,
-        fileName: `${safeTitle}.mp3`,
-        completedAt: Date.now(),
+        status: 'downloading',
+        progress: nextProgress,
+        downloadedBytes: progress.downloadedBytes,
+        totalBytes: progress.totalBytes,
       });
-      return;
+    });
+
+    const outputPath = path.join(config.downloadsDir, `${uuid}.${finalExt}`);
+    if (!fs.existsSync(outputPath)) {
+      throw new VideoServiceError(
+        'Download completed but the output file could not be located.',
+        'PROCESSING_ERROR',
+        500
+      );
     }
-
-    // MP4 video path
-    const target = qualities.find((q) => q.label === quality) || qualities[0];
-    if (!target) {
-      throw new VideoServiceError('No authorized video formats are available.', 'NO_FORMATS', 422);
-    }
-
-    if (target.mode === 'progressive') {
-      await assertWithinSizeLimit(target.approxSizeBytes);
-      const outputPath = tempFilePath('mp4');
-      const stream = ytdl.downloadFromInfo(info, { quality: target.itag });
-      await pipeWithProgress(stream, fs.createWriteStream(outputPath), jobId, 0.05, 0.95);
-
-      updateJob(jobId, {
-        status: 'complete',
-        progress: 100,
-        filePath: outputPath,
-        fileName: `${safeTitle}-${quality}.mp4`,
-        completedAt: Date.now(),
-      });
-      return;
-    }
-
-    // Adaptive: separate video-only and audio-only streams, merged via ffmpeg
-    await assertWithinSizeLimit(target.approxSizeBytes);
-
-    const rawVideoPath = tempFilePath('video-src');
-    const rawAudioPath = tempFilePath('audio-src');
-    cleanupPaths.push(rawVideoPath, rawAudioPath);
-
-    const videoStream = ytdl.downloadFromInfo(info, { quality: target.videoItag });
-    await pipeWithProgress(videoStream, fs.createWriteStream(rawVideoPath), jobId, 0.05, 0.5);
-
-    const audioStream = ytdl.downloadFromInfo(info, { quality: target.audioItag });
-    await pipeWithProgress(audioStream, fs.createWriteStream(rawAudioPath), jobId, 0.5, 0.75);
-
-    const outputPath = tempFilePath('mp4');
-    updateJob(jobId, { status: 'converting', progress: 80 });
-    await muxAudioVideo(rawVideoPath, rawAudioPath, outputPath, jobId);
 
     updateJob(jobId, {
       status: 'complete',
       progress: 100,
       filePath: outputPath,
-      fileName: `${safeTitle}-${quality}.mp4`,
+      fileName,
       completedAt: Date.now(),
     });
   } catch (err) {
-    const friendly =
-      err instanceof VideoServiceError
-        ? err.message
-        : 'An unexpected error occurred while processing your download.';
-    updateJob(jobId, { status: 'error', error: friendly });
+    updateJob(jobId, { status: 'error', error: mapDownloadError(err) });
   } finally {
     clearTimeout(timeoutHandle);
-    for (const p of cleanupPaths) {
-      fs.promises.unlink(p).catch(() => {});
-    }
   }
-}
-
-function convertToMp3(inputPath, outputPath, jobId) {
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .audioCodec('libmp3lame')
-      .audioBitrate(192)
-      .format('mp3')
-      .on('progress', (p) => {
-        const pct = Math.min(99, Math.round(60 + (p.percent || 0) * 0.4));
-        updateJob(jobId, { status: 'converting', progress: pct });
-      })
-      .on('error', reject)
-      .on('end', resolve)
-      .save(outputPath);
-  });
-}
-
-function muxAudioVideo(videoPath, audioPath, outputPath, jobId) {
-  return new Promise((resolve, reject) => {
-    ffmpeg()
-      .input(videoPath)
-      .input(audioPath)
-      .videoCodec('copy')
-      .audioCodec('aac')
-      .outputOptions('-shortest')
-      .on('progress', (p) => {
-        const pct = Math.min(99, Math.round(80 + (p.percent || 0) * 0.19));
-        updateJob(jobId, { status: 'converting', progress: pct });
-      })
-      .on('error', reject)
-      .on('end', resolve)
-      .save(outputPath);
-  });
 }
 
 module.exports = { runDownloadJob };
