@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>YouTube Downloader — Fast, Authorized Video Processing</title>
+<meta name="description" content="Download your videos or content you are authorized to download. Fast, simple and reliable video processing." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="bg-glow" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="#top" class="brand">
+      <span class="brand-mark">▶</span>
+      <span class="brand-name">Downly</span>
+    </a>
+    <nav class="main-nav" id="mainNav">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#features">Features</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mainNav">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="container hero-inner">
+      <p class="eyebrow">Video processing, done right</p>
+      <h1>Download Your Videos</h1>
+      <p class="subtitle">Fast, simple and reliable video processing for content you own or are authorized to download.</p>
+
+      <form class="analyze-form" id="analyzeForm" novalidate>
+        <div class="input-glass">
+          <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.6"/>
+          </svg>
+          <input
+            type="url"
+            id="urlInput"
+            name="url"
+            placeholder="Paste YouTube URL here..."
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="YouTube URL"
+            required
+          />
+        </div>
+
+        <label class="consent-row">
+          <input type="checkbox" id="authCheckbox" required />
+          <span>I own this content or have explicit authorization to download it.</span>
+        </label>
+
+        <button type="submit" class="btn btn-primary btn-large" id="analyzeBtn">
+          <span class="btn-label">Analyze Video</span>
+          <span class="btn-spinner" hidden aria-hidden="true"></span>
+        </button>
+
+        <p class="form-hint" id="formHint" role="alert" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="results" id="resultsSection" hidden>
+    <div class="container">
+
+      <div class="loading-state" id="loadingState" hidden>
+        <div class="loader-ring" aria-hidden="true"></div>
+        <p>Analyzing video…</p>
+      </div>
+
+      <div class="video-card glass" id="videoCard" hidden>
+        <div class="video-card-media">
+          <img id="videoThumbnail" alt="" />
+          <span class="duration-badge" id="videoDuration">00:00</span>
+        </div>
+        <div class="video-card-body">
+          <h2 id="videoTitle">Video title</h2>
+          <p class="video-channel" id="videoChannel">Channel name</p>
+
+          <div class="options-grid">
+            <div class="option-group">
+              <span class="option-label">Format</span>
+              <div class="pill-group" id="formatPills"></div>
+            </div>
+            <div class="option-group" id="qualityGroup">
+              <span class="option-label">Quality</span>
+              <div class="pill-group" id="qualityPills"></div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-large" id="downloadBtn" disabled>
+            <span class="btn-label">Download</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="download-panel glass" id="downloadPanel" hidden>
+        <div class="panel-header">
+          <h3 id="downloadStatusTitle">Preparing your download…</h3>
+          <p id="downloadStatusSub">Setting things up</p>
+        </div>
+
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+
+        <div class="progress-meta">
+          <span id="progressPercent">0%</span>
+          <span id="progressBytes"></span>
+          <span id="progressEta"></span>
+        </div>
+
+        <a class="btn btn-primary btn-large ready-btn" id="readyDownloadLink" hidden>
+          <span class="btn-label">Download Ready — Get File</span>
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <h2 class="section-title">How It Works</h2>
+      <div class="steps-grid">
+        <div class="step-card glass">
+          <span class="step-number">01</span>
+          <h3>Paste URL</h3>
+          <p>Drop in the link to a video you own or are authorized to download.</p>
+        </div>
+        <div class="step-card glass">
+          <span class="step-number">02</span>
+          <h3>Choose Format</h3>
+          <p>Pick an authorized quality and format from what's actually available.</p>
+        </div>
+        <div class="step-card glass">
+          <span class="step-number">03</span>
+          <h3>Download</h3>
+          <p>Track live progress and grab your file the moment it's ready.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <h2 class="section-title">Features</h2>
+      <div class="features-grid">
+        <div class="feature-card glass">
+          <div class="feature-icon">⚡</div>
+          <h3>Fast Processing</h3>
+          <p>Optimized streaming pipeline gets your file ready in moments.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">🎛️</div>
+          <h3>Multiple Formats</h3>
+          <p>Choose from authorized qualities and formats actually available for a video.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">📱</div>
+          <h3>Responsive Design</h3>
+          <p>A clean, fast experience on desktop, tablet, and mobile.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">🔒</div>
+          <h3>Secure Processing</h3>
+          <p>Rate limiting, input validation, and hardened headers throughout.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">🧹</div>
+          <h3>Automatic Cleanup</h3>
+          <p>Temporary files are deleted automatically after every download.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">✅</div>
+          <h3>Authorization First</h3>
+          <p>Every request requires confirmation that you have rights to the content.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq">
+    <div class="container">
+      <h2 class="section-title">Frequently Asked Questions</h2>
+      <div class="faq-list">
+        <details class="faq-item glass">
+          <summary>Why can't some videos be downloaded?</summary>
+          <p>Private videos, age-restricted content, live streams, and region-locked or copyright-protected videos are not processed by this service. We only surface formats that are legitimately available for a given video.</p>
+        </details>
+        <details class="faq-item glass">
+          <summary>Where are temporary files stored?</summary>
+          <p>Files are written to a private, server-side temporary directory during processing and are automatically deleted immediately after your download completes, or shortly after if left unclaimed.</p>
+        </details>
+        <details class="faq-item glass">
+          <summary>Does the service store my videos?</summary>
+          <p>No. Files exist only for the duration of processing and are removed automatically. We do not keep a library or archive of processed content.</p>
+        </details>
+        <details class="faq-item glass">
+          <summary>Can I download videos I don't own?</summary>
+          <p>You may only use this tool for videos you own or have explicit authorization to download. You are solely responsible for ensuring you have the rights to any content you process here.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="brand-mark">▶</span>
+      <span class="brand-name">Downly</span>
+      <p>Responsible video processing for authorized content only.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#top">About</a>
+        <a href="#faq">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="#faq">Privacy</a>
+        <a href="#faq">Terms</a>
+      </div>
+    </div>
+    <p class="copyright">© 2026 Downly. All rights reserved. Users are solely responsible for having permission to download any content processed through this service.</p>
+  </div>
+</footer>
+
+<div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
