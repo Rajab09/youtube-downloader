@@ -60,7 +60,10 @@ async function runDownloadJob(jobId, { url, format, quality }) {
       if (!Number.isFinite(height)) {
         throw new VideoServiceError('Unsupported quality requested.', 'INVALID_QUALITY', 400);
       }
-      formatSelector = `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`;
+      // Prefer H.264/AAC streams (widely playable) over VP9/AV1+Opus, which
+      // yt-dlp otherwise remuxes into an .mp4 container that many players
+      // (QuickTime, Preview, etc.) cannot decode despite the valid extension.
+      formatSelector = `bestvideo[height<=${height}][vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[height<=${height}][ext=mp4]/bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`;
       postArgs = ['--merge-output-format', 'mp4'];
       finalExt = 'mp4';
       fileName = `${safeTitle}-${quality}.mp4`;
