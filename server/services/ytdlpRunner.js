@@ -2,8 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
+const config = require('../config');
 
 const LOCAL_BINARY = path.join(__dirname, '..', '..', 'bin', 'yt-dlp');
+
+function cookiesArgs() {
+  return config.cookiesPath ? ['--cookies', config.cookiesPath] : [];
+}
 
 function resolveBinaryPath() {
   if (process.env.YTDLP_PATH) return process.env.YTDLP_PATH;
@@ -31,6 +36,7 @@ function getVideoInfo(url) {
       '20',
       '--ffmpeg-location',
       ffmpegPath,
+      ...cookiesArgs(),
       '--',
       url,
     ]);
@@ -88,6 +94,7 @@ function runDownload(url, { formatSelector, outputTemplate, postArgs = [] }, onP
       '-o',
       outputTemplate,
       ...postArgs,
+      ...cookiesArgs(),
       '--',
       url,
     ];
